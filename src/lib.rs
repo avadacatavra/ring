@@ -63,7 +63,6 @@
     private_no_mangle_fns,
     private_no_mangle_statics,
     stable_features,
-    trivial_casts,
     trivial_numeric_casts,
     unconditional_recursion,
     unknown_crate_types,
@@ -116,6 +115,9 @@ extern crate untrusted;
 
 #[path = "arithmetic/arithmetic.rs"]
 mod arithmetic;
+
+#[macro_use]
+extern crate fc;
 
 #[macro_use]
 mod bssl;

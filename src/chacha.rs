@@ -89,6 +89,7 @@ mod tests {
     use test;
     use super::*;
     use super::GFp_ChaCha20_ctr32;
+    use fc::core::*;
 
     // This verifies the encryption functionality provided by ChaCha20_ctr32
     // is successful when either computed on disjoint input/output buffers,
@@ -102,7 +103,12 @@ mod tests {
     // problem spreads to other platforms.
     #[test]
     pub fn chacha20_tests() {
+        /* #modified_for_fc */
+        create_padding!();
+
         test::from_file("src/chacha_tests.txt", |section, test_case| {
+            create_padding!();
+
             assert_eq!(section, "");
 
             let key = test_case.consume_bytes("Key");
@@ -116,8 +122,20 @@ mod tests {
             let input = test_case.consume_bytes("Input");
             let output = test_case.consume_bytes("Output");
 
+
+
             // Pre-allocate buffer for use in test_cases.
             let mut in_out_buf = vec![0u8; input.len() + 276];
+
+            let kernel_key = get_kernel_key!();
+
+            create_padding!();
+
+            immutable_single_stack_page(&key);
+            disable_mprotect_stack(&kernel_key, &memory_page_addr_usize!(key));
+
+            //This 👇 will fail because buffer has to be mutable.
+            //immutable_single_stack_page(&in_out_buf[0]);
 
             // Run the test case over all prefixes of the input because the
             // behavior of ChaCha20 implementation changes dependent on the
@@ -127,6 +145,8 @@ mod tests {
                                          &output[..len], len, &mut in_out_buf);
             }
 
+            enable_mprotect_stack(&kernel_key);
+            mutable_single_stack_page(&key);
             Ok(())
         });
     }

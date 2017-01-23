@@ -112,10 +112,20 @@ mod tests {
     use {c, test};
     use super::AES_MAX_ROUNDS;
 
+    use fc::core::*;
+
     #[test]
     pub fn test_aes() {
+        /* #modified_for_fc */
+
+        create_padding!();
+
+
         test::from_file("src/aead/aes_tests.txt", |section, test_case| {
             assert_eq!(section, "");
+
+            create_padding!();
+
             let key = test_case.consume_bytes("Key");
             let input = test_case.consume_bytes("Input");
             let input = slice_as_array_ref!(&input, AES_BLOCK_SIZE).unwrap();
@@ -123,15 +133,38 @@ mod tests {
             let expected_output =
                 slice_as_array_ref!(&expected_output, AES_BLOCK_SIZE).unwrap();
 
+            /*
+            1. Generate a key
+            2. Introduce padding to isolate the memory page for the bindings above.
+            3. Protect the isolated memory page.
+            4. Disable access to mprotect.
+            */
+            let kernel_key = get_kernel_key!();
+
+            create_padding!(); 
+
+            //Key used as argument to find the start address of the page.
+            immutable_single_stack_page(&key);
+            //This one is for the heap memory allocated for input.
+            immutable_single_stack_page((&input[0]));
+
+            disable_mprotect_stack(&kernel_key, &memory_page_addr_usize!(key));
+
+
             // Key setup.
             let mut aes_key = AES_KEY {
                 rd_key: [0u32; 4 * (AES_MAX_ROUNDS + 1)],
                 rounds: 0,
             };
+
+
             let res = unsafe {
                 GFp_AES_set_encrypt_key(key.as_ptr(), key.len() * 8,
                                         &mut aes_key)
             };
+
+
+
             assert_eq!(res, 0, "GFp_AES_set_encrypt_key failed.");
 
             // Test encryption into a separate buffer.
@@ -148,8 +181,17 @@ mod tests {
                 GFp_AES_encrypt(output_buf.as_ptr(), output_buf.as_mut_ptr(),
                                 &aes_key);
             }
-            assert_eq!(&output_buf[..], &expected_output[..]);
 
+            /*
+            Reverse everything by
+            1. Enabling access to mprotect again.
+            2. Changing all page permissions back to normal.
+            */
+            enable_mprotect_stack(&kernel_key);
+            mutable_single_stack_page(&key);
+            mutable_single_stack_page((&input[0]));
+
+            assert_eq!(&output_buf[..], &expected_output[..]);
             Ok(())
         })
     }
