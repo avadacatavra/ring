@@ -118,13 +118,13 @@ mod tests {
     pub fn test_aes() {
         /* #modified_for_fc */
 
-        create_padding!();
+        stack_padding!();
 
 
         test::from_file("src/aead/aes_tests.txt", |section, test_case| {
             assert_eq!(section, "");
 
-            create_padding!();
+            stack_padding!();
 
             let key = test_case.consume_bytes("Key");
             let input = test_case.consume_bytes("Input");
@@ -139,16 +139,14 @@ mod tests {
             3. Protect the isolated memory page.
             4. Disable access to mprotect.
             */
-            let kernel_key = get_kernel_key!();
-
-            create_padding!(); 
+            stack_padding!(); 
 
             //Key used as argument to find the start address of the page.
-            immutable_single_stack_page(&key);
+            immutable_sc(&key);
             //This one is for the heap memory allocated for input.
-            immutable_single_stack_page((&input[0]));
+            immutable_sc((&input[0]));
 
-            disable_mprotect_stack(&kernel_key, &memory_page_addr_usize!(key));
+            kernel_disable!(memory_page_addr!(key) as usize);
 
 
             // Key setup.
@@ -187,9 +185,9 @@ mod tests {
             1. Enabling access to mprotect again.
             2. Changing all page permissions back to normal.
             */
-            enable_mprotect_stack(&kernel_key);
-            mutable_single_stack_page(&key);
-            mutable_single_stack_page((&input[0]));
+            // kernel_enable!();
+            normal_sc(&key);
+            normal_sc((&input[0]));
 
             assert_eq!(&output_buf[..], &expected_output[..]);
             Ok(())

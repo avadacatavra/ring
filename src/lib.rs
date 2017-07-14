@@ -116,6 +116,7 @@ extern crate untrusted;
 #[path = "arithmetic/arithmetic.rs"]
 mod arithmetic;
 
+#[allow(unused_imports)]
 #[macro_use]
 extern crate fc;
 

@@ -104,10 +104,10 @@ mod tests {
     #[test]
     pub fn chacha20_tests() {
         /* #modified_for_fc */
-        create_padding!();
+        stack_padding!();
 
         test::from_file("src/chacha_tests.txt", |section, test_case| {
-            create_padding!();
+            stack_padding!();
 
             assert_eq!(section, "");
 
@@ -127,12 +127,12 @@ mod tests {
             // Pre-allocate buffer for use in test_cases.
             let mut in_out_buf = vec![0u8; input.len() + 276];
 
-            let kernel_key = get_kernel_key!();
+            //let kernel_key = get_kernel_key!();
 
-            create_padding!();
+            stack_padding!();
 
-            immutable_single_stack_page(&key);
-            disable_mprotect_stack(&kernel_key, &memory_page_addr_usize!(key));
+            immutable_sc(&key);
+            kernel_disable!(memory_page_addr!(key) as usize);
 
             //This 👇 will fail because buffer has to be mutable.
             //immutable_single_stack_page(&in_out_buf[0]);
@@ -145,8 +145,8 @@ mod tests {
                                          &output[..len], len, &mut in_out_buf);
             }
 
-            enable_mprotect_stack(&kernel_key);
-            mutable_single_stack_page(&key);
+            kernel_enable!();
+            normal_sc(&key);
             Ok(())
         });
     }
